@@ -31,6 +31,14 @@ glm::dvec3 ray_color(const ray& r, const hittable_list& world, int depth) {
     return (1.0-t)*glm::dvec3(1.0,1.0,1.0) + t*glm::dvec3(0.5, 0.7, 1.0);
 }
 
+hittable_list earth() {
+    auto earth_texture = make_shared<image_texture>("C:/Users/Danny Le/CLionProjects/untitled/assets/earthmap.jpg");
+    auto earth_surface = make_shared<lambertian>(earth_texture);
+    auto globe = make_shared<sphere>(glm::dvec3{0,0,0}, 2, earth_surface);
+
+    return hittable_list(globe);
+}
+
 hittable_list two_perlin_spheres() {
     hittable_list objects;
 
@@ -119,7 +127,7 @@ int main() {
     double vfov = 40.0;
     double aperture = 0.0;
 
-    switch(3) {
+    switch(4) {
         case 1:
             world = random_scene();
             lookFrom = glm::dvec3(13,2,3);
@@ -137,6 +145,12 @@ int main() {
             world = two_perlin_spheres();
             lookFrom = glm::dvec3(13,2,3);
             lookAt = glm::dvec3(0,0,0);
+            vfov = 20.0;
+            break;
+        case 4:
+            world = earth();
+            lookFrom = glm::dvec3{13,2,3};
+            lookAt = glm::dvec3{0,0,0};
             vfov = 20.0;
             break;
         default:
