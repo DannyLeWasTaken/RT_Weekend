@@ -11,6 +11,9 @@
 #include "moving_sphere.hpp"
 #include "aarect.hpp"
 #include "box.hpp"
+#include "constant_medium.hpp"
+#include "bvh.hpp"
+#include "glmutil.hpp"
 
 
 glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_list& world, int depth) {
@@ -34,7 +37,100 @@ glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_l
     return emitted + attenuation * ray_color(scattered, background, world, depth - 1);
 }
 
+hittable_list final_scene() {
+    hittable_list boxes1;
+    auto ground = make_shared<lambertian>(glm::dvec3(0.48, 0.83, 0.53));
+
+    const int boxes_per_side = 20;
+    for (int i = 0; i < boxes_per_side; i++) {
+        for (int j = 0; j < boxes_per_side; j++) {
+            auto w = 100.0;
+            auto x0 = -1000.0 + i*w;
+            auto z0 = -1000.0 + j*w;
+            auto y0 = 0.0;
+            auto x1 = x0 + w;
+            auto y1 = random_double(1,101);
+            auto z1 = z0 + w;
+
+            boxes1.add(make_shared<box>(glm::dvec3(x0,y0,z0), glm::dvec3(x1,y1,z1), ground));
+        }
+    }
+
+    hittable_list objects;
+
+    objects.add(make_shared<bvh_node>(boxes1, 0, 1));
+
+    auto light = make_shared<diffuse_light>(glm::dvec3(7, 7, 7));
+    objects.add(make_shared<xz_rect>(123, 423, 147, 412, 554, light));
+
+    auto center1 = glm::dvec3(400, 400, 200);
+    auto center2 = center1 + glm::dvec3(30,0,0);
+    auto moving_sphere_material = make_shared<lambertian>(glm::dvec3(0.7, 0.3, 0.1));
+    objects.add(make_shared<moving_sphere>(center1, center2, 0, 1, 50, moving_sphere_material));
+
+    objects.add(make_shared<sphere>(glm::dvec3(260, 150, 45), 50, make_shared<dielectric>(1.5)));
+    objects.add(make_shared<sphere>(
+            glm::dvec3(0, 150, 145), 50, make_shared<metal>(glm::dvec3(0.8, 0.8, 0.9), 1.0)
+    ));
+
+    auto boundary = make_shared<sphere>(glm::dvec3(360,150,145), 70, make_shared<dielectric>(1.5));
+    objects.add(boundary);
+    objects.add(make_shared<constant_medium>(boundary, 0.2, glm::dvec3(0.2, 0.4, 0.9)));
+    boundary = make_shared<sphere>(glm::dvec3(0, 0, 0), 5000, make_shared<dielectric>(1.5));
+    objects.add(make_shared<constant_medium>(boundary, .0001, glm::dvec3(1,1,1)));
+
+    auto emat = make_shared<lambertian>(make_shared<image_texture>("C:/Users/Danny Le/CLionProjects/untitled/assets/earthmap.jpg"));
+    objects.add(make_shared<sphere>(glm::dvec3(400,200,400), 100, emat));
+    auto pertext = make_shared<noise_texture>(0.1);
+    objects.add(make_shared<sphere>(glm::dvec3(220,280,300), 80, make_shared<lambertian>(pertext)));
+
+    hittable_list boxes2;
+    auto white = make_shared<lambertian>(glm::dvec3(.73, .73, .73));
+    int ns = 1000;
+    for (int j = 0; j < ns; j++) {
+        boxes2.add(make_shared<sphere>(randomVec3(0,165), 10, white));
+    }
+
+    objects.add(make_shared<translate>(
+                        make_shared<rotate_y>(
+                                make_shared<bvh_node>(boxes2, 0.0, 1.0), 15),
+                        glm::dvec3(-100,270,395)
+                )
+    );
+
+
+    return objects;
+}
+
 hittable_list cornell_box() {
+    hittable_list objects;
+
+    auto red   = make_shared<lambertian>(glm::dvec3(0.65, 0.05, 0.05));
+    auto white = make_shared<lambertian>(glm::dvec3(0.73, 0.73, 0.73));
+    auto green = make_shared<lambertian>(glm::dvec3(0.12, 0.45, 0.15));
+    auto light = make_shared<diffuse_light>(glm::dvec3(7, 7, 7));
+
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
+    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
+    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+
+    shared_ptr<hittable> box1 = make_shared<box>(glm::dvec3(0, 0, 0), glm::dvec3(165, 330, 165), white);
+    box1 = make_shared<rotate_y>(box1, 15);
+    box1 = make_shared<translate>(box1, glm::dvec3(265,0,295));
+   objects.add(box1);
+
+    shared_ptr<hittable> box2 = make_shared<box>(glm::dvec3(0,0,0), glm::dvec3(165,165,165), white);
+    box2 = make_shared<rotate_y>(box2, -18);
+    box2 = make_shared<translate>(box2, glm::dvec3(130,0,65));
+    objects.add(box2);
+
+    return objects;
+}
+
+hittable_list cornell_smoke() {
     hittable_list objects;
 
     auto red   = make_shared<lambertian>(glm::dvec3(0.65, 0.05, 0.05));
@@ -52,12 +148,14 @@ hittable_list cornell_box() {
     shared_ptr<hittable> box1 = make_shared<box>(glm::dvec3(0, 0, 0), glm::dvec3(165, 330, 165), white);
     box1 = make_shared<rotate_y>(box1, 15);
     box1 = make_shared<translate>(box1, glm::dvec3(265,0,295));
-    objects.add(box1);
 
     shared_ptr<hittable> box2 = make_shared<box>(glm::dvec3(0,0,0), glm::dvec3(165,165,165), white);
     box2 = make_shared<rotate_y>(box2, -18);
     box2 = make_shared<translate>(box2, glm::dvec3(130,0,65));
-    objects.add(box2);
+
+    // smoke version
+    objects.add(make_shared<constant_medium>(box1, 0.01, glm::dvec3(0,0,0)));
+    objects.add(make_shared<constant_medium>(box2, 0.01, glm::dvec3(1,1,1)));
 
     return objects;
 }
@@ -171,7 +269,7 @@ int main() {
     double aperture = 0.0;
     glm::dvec3 background{0,0,0};
 
-    switch(6) {
+    switch(8) {
         case 1:
             world = random_scene();
             background = glm::dvec3{0.70, 0.80, 1.00};
@@ -209,12 +307,31 @@ int main() {
             lookAt = glm::dvec3(0, 2, 0);
             vfov = 20.0;
             break;
+        case 7:
+            world = cornell_smoke();
+            aspect_ratio = 1.0;
+            image_width = 600;
+            samples_per_pixel = 256;
+            lookFrom = glm::dvec3(278, 278, -800);
+            lookAt = glm::dvec3(278, 278, 0);
+            vfov = 40.0;
+            break;
+        case 8:
+            world = final_scene();
+            aspect_ratio = 1.0;
+            image_width = 800;
+            samples_per_pixel = 256;
+            background = glm::dvec3(0,0,0);
+            lookFrom = glm::dvec3(478, 278, -600);
+            lookAt = glm::dvec3(278, 278, 0);
+            vfov = 40.0;
+            break;
         default:
         case 6:
             world = cornell_box();
             aspect_ratio = 1.0;
-            image_width = 300;
-            samples_per_pixel = 32;
+            image_width = 600;
+            samples_per_pixel = 256;
             background = glm::dvec3(0,0,0);
             lookFrom = glm::dvec3(278, 278, -800);
             lookAt = glm::dvec3(278, 278, 0);

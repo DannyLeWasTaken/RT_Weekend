@@ -8,6 +8,7 @@
 //#include <glm/glm.hpp>
 #include "ray.hpp"
 #include "rtweekend.hpp"
+#include "texture.hpp"
 #include "aabb.hpp"
 
 class material;

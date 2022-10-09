@@ -6,6 +6,7 @@
 #define UNTITLED_PERLIN_HPP
 
 #include "rtweekend.hpp"
+#include "glmutil.hpp"
 #include <glm/glm.hpp>
 
 class perlin {

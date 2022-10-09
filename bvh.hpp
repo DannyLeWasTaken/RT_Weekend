@@ -73,7 +73,7 @@ bvh_node::bvh_node(const std::vector<shared_ptr<hittable>> &src_objects, size_t 
     int axis = random_int(0, 2);
     auto comparator = (axis == 0) ? box_x_compare : (axis == 1) ? box_y_compare : box_z_compare;
 
-    size_t object_span = start - end;
+    size_t object_span = end - start;
     if (object_span == 1) {
         left = right = objects[start];
     } else if (object_span == 2) {
