@@ -14,6 +14,9 @@
 
 class material {
 public:
+    virtual glm::dvec3 emitted(double u, double v, const glm::dvec3 &p) const {
+        return glm::dvec3{0,0,0};
+    }
     virtual bool scatter(
             const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
     ) const = 0;
@@ -99,6 +102,25 @@ private:
         r0 = r0*r0;
         return r0 + (1-r0) * pow((1 - consine), 5);
     }
+};
+
+class diffuse_light : public material {
+public:
+    diffuse_light(shared_ptr<texture> a) : emit(a) {};
+    diffuse_light(glm::dvec3 c) : emit(make_shared<solid_color>(c)) {}
+
+    virtual bool scatter (
+            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
+            ) const override {
+        return false;
+    }
+
+    virtual glm::dvec3 emitted(double u, double v, const glm::dvec3 &p) const override {
+        return emit->value(u,v,p);
+    }
+
+public:
+    shared_ptr<texture> emit;
 };
 
 #endif //UNTITLED_MATERIAL_HPP

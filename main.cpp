@@ -9,26 +9,59 @@
 #include "camera.hpp"
 #include "glmutil.hpp"
 #include "moving_sphere.hpp"
+#include "aarect.hpp"
 
 
-glm::dvec3 ray_color(const ray& r, const hittable_list& world, int depth) {
+glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_list& world, int depth) {
     hit_record rec;
 
-    if (depth <= 0) {
+    // If we've exceeded the ray bounce limit, no more light is gathered.
+    if (depth <= 0)
         return glm::dvec3(0,0,0);
-    }
 
-    if (world.hit(r, 0.001, infinity, rec)) {
-        ray scattered;
-        glm::dvec3 attenuation;
-        if (rec.mat_ptr->scatter(r,  rec, attenuation, scattered)) {
-            return attenuation * ray_color(scattered, world, depth-1);
-        }
-        return glm::dvec3{0,0,0};
-    }
-    glm::dvec3 unit_direction = glm::normalize(r.direction());
-    auto t = 0.5f * (unit_direction.y + 1.0);
-    return (1.0-t)*glm::dvec3(1.0,1.0,1.0) + t*glm::dvec3(0.5, 0.7, 1.0);
+    // If the ray hits nothing, return the background color
+    if (!world.hit(r, 0.001, infinity, rec))
+        return background;
+
+    ray scattered;
+    glm::dvec3 attenuation;
+    glm::dvec3 emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+
+    if (!rec.mat_ptr->scatter(r,  rec, attenuation, scattered))
+        return emitted;
+
+    return emitted + attenuation * ray_color(scattered, background, world, depth - 1);
+}
+
+hittable_list cornell_box() {
+    hittable_list objects;
+
+    auto red   = make_shared<lambertian>(glm::dvec3(0.65, 0.05, 0.05));
+    auto white = make_shared<lambertian>(glm::dvec3(0.73, 0.73, 0.73));
+    auto green = make_shared<lambertian>(glm::dvec3(0.12, 0.45, 0.15));
+    auto light = make_shared<diffuse_light>(glm::dvec3(15, 15, 15));
+
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
+    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
+    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+
+    return objects;
+}
+
+hittable_list simple_light() {
+    hittable_list objects;
+
+    auto pertext = make_shared<noise_texture>(4);
+    objects.add(make_shared<sphere>(glm::dvec3(0, -1000, 0), 1000, make_shared<lambertian>(pertext)));
+    objects.add(make_shared<sphere>(glm::dvec3(0, 2, 0), 2, make_shared<lambertian>(pertext)));
+
+    auto diffLight = make_shared<diffuse_light>(glm::dvec3{4,4,4});
+    objects.add(make_shared<xy_rect>(3, 5, 1, 3, -2, diffLight));
+
+    return objects;
 }
 
 hittable_list earth() {
@@ -113,10 +146,9 @@ int main() {
 
     // Image
 
-    const auto aspect_ratio = 16.0 / 9.0;
-    const int image_width = 480;
-    const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 4;
+    auto aspect_ratio = 16.0 / 9.0;
+    int image_width = 480;
+    int samples_per_pixel = 4;
     const int max_depth = 50;
 
     // World
@@ -126,10 +158,12 @@ int main() {
     glm::dvec3 lookAt = glm::dvec3(0,0,0);
     double vfov = 40.0;
     double aperture = 0.0;
+    glm::dvec3 background{0,0,0};
 
-    switch(4) {
+    switch(6) {
         case 1:
             world = random_scene();
+            background = glm::dvec3{0.70, 0.80, 1.00};
             lookFrom = glm::dvec3(13,2,3);
             lookAt = glm::dvec3(0,0,0);
             vfov = 20.0;
@@ -137,31 +171,52 @@ int main() {
             break;
         case 2:
             world = two_spheres();
+            background = glm::dvec3{0.70, 0.80, 1.00};
             lookFrom = glm::dvec3(13,2,3);
             lookAt = glm::dvec3(0,0,0);
             vfov = 20.0;
             break;
         case 3:
             world = two_perlin_spheres();
+            background = glm::dvec3{0.70, 0.80, 1.00};
             lookFrom = glm::dvec3(13,2,3);
             lookAt = glm::dvec3(0,0,0);
             vfov = 20.0;
             break;
         case 4:
             world = earth();
+            background = glm::dvec3{0.70, 0.80, 1.00};
             lookFrom = glm::dvec3{13,2,3};
             lookAt = glm::dvec3{0,0,0};
             vfov = 20.0;
             break;
+        case 5:
+            world = simple_light();
+            samples_per_pixel = 4;
+            background = glm::dvec3(0.0,0.0,0.0);
+            lookFrom = glm::dvec3(26, 3, 6);
+            lookAt = glm::dvec3(0, 2, 0);
+            vfov = 20.0;
+            break;
         default:
+        case 6:
+            world = cornell_box();
+            aspect_ratio = 1.0;
+            image_width = 600;
+            samples_per_pixel = 600;
+            background = glm::dvec3(0,0,0);
+            lookFrom = glm::dvec3(278, 278, -800);
+            lookAt = glm::dvec3(278, 278, 0);
+            vfov = 40.0;
             break;
     }
 
     // Camera
+    int image_height = static_cast<int>(image_width / aspect_ratio);
     glm::dvec3 vup = glm::dvec3(0,1,0);
     double dist_to_focus = 10.0;
 
-    camera cam(lookFrom, lookAt, vup, 20, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
+    camera cam(lookFrom, lookAt, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
 
     // Render
 
@@ -194,7 +249,7 @@ int main() {
                 auto v = (j + random_double()) / (image_height - 1);
                 ray r = cam.get_ray(u, v);
                 //std::thread rayWorker(ray_color, r, world, max_depth, (&pixel_color));
-                pixel_color += ray_color(r, world, max_depth);
+                pixel_color += ray_color(r, background, world, max_depth);
             }
             write_color(std::cout, pixel_color, samples_per_pixel);
         }
