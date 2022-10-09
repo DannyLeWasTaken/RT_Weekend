@@ -10,6 +10,7 @@
 #include "glmutil.hpp"
 #include "moving_sphere.hpp"
 #include "aarect.hpp"
+#include "box.hpp"
 
 
 glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_list& world, int depth) {
@@ -47,6 +48,16 @@ hittable_list cornell_box() {
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
     objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+
+    shared_ptr<hittable> box1 = make_shared<box>(glm::dvec3(0, 0, 0), glm::dvec3(165, 330, 165), white);
+    box1 = make_shared<rotate_y>(box1, 15);
+    box1 = make_shared<translate>(box1, glm::dvec3(265,0,295));
+    objects.add(box1);
+
+    shared_ptr<hittable> box2 = make_shared<box>(glm::dvec3(0,0,0), glm::dvec3(165,165,165), white);
+    box2 = make_shared<rotate_y>(box2, -18);
+    box2 = make_shared<translate>(box2, glm::dvec3(130,0,65));
+    objects.add(box2);
 
     return objects;
 }
@@ -202,8 +213,8 @@ int main() {
         case 6:
             world = cornell_box();
             aspect_ratio = 1.0;
-            image_width = 600;
-            samples_per_pixel = 600;
+            image_width = 300;
+            samples_per_pixel = 32;
             background = glm::dvec3(0,0,0);
             lookFrom = glm::dvec3(278, 278, -800);
             lookAt = glm::dvec3(278, 278, 0);
