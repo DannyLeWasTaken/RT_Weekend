@@ -10,6 +10,8 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <iostream>
+#include <glm/glm.hpp>
 
 using std::shared_ptr;
 using std::make_shared;
