@@ -18,8 +18,15 @@ public:
         return glm::dvec3{0,0,0};
     }
     virtual bool scatter(
-            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
-    ) const = 0;
+            const ray& r_in, const hit_record& rec, glm::dvec3& albedo, ray& scattered, double& pdf
+    ) const {
+        return false;
+    };
+    virtual double scattering_pdf(
+            const ray& r_in, const hit_record& rec, const ray& scattered
+            ) const {
+        return 0;
+    }
 };
 
 
@@ -29,18 +36,27 @@ public:
     lambertian(shared_ptr<texture> a) : albedo(a) {}
 
     virtual bool scatter(
-            const ray& r_in, const hit_record& rec, glm::dvec3 &attenuation, ray &scattered
+            const ray& r_in, const hit_record& rec, glm::dvec3& alb, ray& scattered, double& pdf
             ) const override {
         auto scatter_direction = rec.normal + random_unit_vector();
-
+        auto direction = random_in_hemisphere(rec.normal);
         // Catch degenerate scatter direction
         if (near_zero(scatter_direction))
             scatter_direction = rec.normal;
 
-        scattered = ray(rec.p, scatter_direction, r_in.time());
-        attenuation = albedo->value(rec.u, rec.v, rec.p);
+        scattered = ray(rec.p, glm::normalize(direction), r_in.time());
+        alb = albedo->value(rec.u, rec.v, rec.p);
+        //pdf = dot(rec.normal, scattered.direction()) / pi;
+        pdf = 0.5 / pi;
         return true;
     };
+    double scattering_pdf(
+            const ray& r_in, const hit_record&  rec, const ray& scattered
+            ) const override {
+        auto cosine = glm::dot(rec.normal, glm::normalize(scattered.direction()));
+        return cosine < 0 ? 0 : cosine / pi;
+    }
+
 public:
     shared_ptr<texture> albedo;
 };
@@ -50,7 +66,7 @@ public:
     metal(const glm::dvec3& a, double f): albedo(a), fuzz(f < 1 ? f : 1) {};
 
     virtual bool scatter(
-            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
+            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered, double& pdf
             ) const override {
         glm::dvec3 reflected = reflect(glm::normalize(r_in.direction()), rec.normal);
         scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere(), r_in.time());
@@ -68,7 +84,7 @@ public:
     dielectric(double index_of_refraction): ir(index_of_refraction) {}
 
     virtual bool scatter(
-            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
+            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered, double& pdf
             ) const override {
         attenuation = glm::dvec3(1.0, 1.0, 1.0);
         double refraction_ratio = rec.front_face ? (1.0/ir) : ir;
@@ -110,7 +126,7 @@ public:
     diffuse_light(glm::dvec3 c) : emit(make_shared<solid_color>(c)) {}
 
     virtual bool scatter (
-            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
+            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered, double& pdf
             ) const override {
         return false;
     }
@@ -129,7 +145,7 @@ public:
     isotropic(shared_ptr<texture> a) : albedo(a) {}
 
     virtual bool scatter(
-            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered
+            const ray& r_in, const hit_record& rec, glm::dvec3& attenuation, ray& scattered, double &pdf
             ) const override {
         scattered = ray(rec.p, random_in_unit_sphere(), r_in.time());
         attenuation = albedo->value(rec.u, rec.v, rec.p);

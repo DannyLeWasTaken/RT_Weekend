@@ -28,13 +28,16 @@ glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_l
         return background;
 
     ray scattered;
-    glm::dvec3 attenuation;
     glm::dvec3 emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+    double pdf;
+    glm::dvec3 albedo;
 
-    if (!rec.mat_ptr->scatter(r,  rec, attenuation, scattered))
+    if (!rec.mat_ptr->scatter(r,  rec, albedo,scattered, pdf))
         return emitted;
 
-    return emitted + attenuation * ray_color(scattered, background, world, depth - 1);
+    return emitted
+            + albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
+            * ray_color(scattered, background, world, depth - 1) / pdf;
 }
 
 hittable_list final_scene() {
@@ -268,8 +271,9 @@ int main() {
     double vfov = 40.0;
     double aperture = 0.0;
     glm::dvec3 background{0,0,0};
+    double dist_to_focus = 10.0;
 
-    switch(8) {
+    switch(5) {
         case 1:
             world = random_scene();
             background = glm::dvec3{0.70, 0.80, 1.00};
@@ -301,7 +305,8 @@ int main() {
             break;
         case 5:
             world = simple_light();
-            samples_per_pixel = 4;
+            samples_per_pixel = 64;
+            image_width = 256;
             background = glm::dvec3(0.0,0.0,0.0);
             lookFrom = glm::dvec3(26, 3, 6);
             lookAt = glm::dvec3(0, 2, 0);
@@ -330,19 +335,19 @@ int main() {
         case 6:
             world = cornell_box();
             aspect_ratio = 1.0;
-            image_width = 600;
-            samples_per_pixel = 256;
+            image_width = 512;
+            samples_per_pixel = 100;
             background = glm::dvec3(0,0,0);
             lookFrom = glm::dvec3(278, 278, -800);
             lookAt = glm::dvec3(278, 278, 0);
             vfov = 40.0;
+            dist_to_focus = 10.0;
             break;
     }
 
     // Camera
     int image_height = static_cast<int>(image_width / aspect_ratio);
     glm::dvec3 vup = glm::dvec3(0,1,0);
-    double dist_to_focus = 10.0;
 
     camera cam(lookFrom, lookAt, vup, vfov, aspect_ratio, aperture, dist_to_focus, 0.0, 1.0);
 

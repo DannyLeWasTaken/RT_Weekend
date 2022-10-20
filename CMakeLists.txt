@@ -10,7 +10,7 @@ FetchContent_Declare(glm
         GIT_TAG 0.9.9.8)
 FetchContent_MakeAvailable(glm)
 
-add_executable(untitled sphere_importance.cpp)
+add_executable(untitled main.cpp)
 
 FetchContent_Declare(stb
         GIT_REPOSITORY https://github.com/nothings/stb
