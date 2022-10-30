@@ -65,6 +65,23 @@ public:
         return true;
     }
 
+    virtual double pdf_value(const glm::dvec3& origin, const glm::dvec3& v) const override {
+        hit_record rec;
+        if (!this->hit(ray(origin, v), 0.001, infinity, rec))
+            return 0;
+
+        auto area = (x1-x0)*(z1-z0);
+        auto distance_squared = rec.t * rec.t * ((v.x*v.x + v.y*v.y + v.z*v.z));
+        auto cosine = fabs(glm::dot(v, rec.normal) / glm::length(v));
+
+        return distance_squared / (cosine * area);
+    }
+
+    virtual glm::dvec3 random(const glm::dvec3& origin) const override {
+        auto random_point = glm::dvec3(random_double(x0, x1), k, random_double(z0, z1));
+        return random_point - origin;
+    }
+
 public:
     shared_ptr<material> mp;
     double x0, x1, z0, z1, k;

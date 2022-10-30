@@ -14,9 +14,11 @@
 #include "constant_medium.hpp"
 #include "bvh.hpp"
 #include "glmutil.hpp"
+#include "pdf.hpp"
 
-
-glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_list& world, int depth) {
+glm::dvec3 ray_color(
+        const ray& r, const glm::dvec3 background, const hittable_list& world,
+        shared_ptr<hittable>& lights, int depth) {
     hit_record rec;
 
     // If we've exceeded the ray bounce limit, no more light is gathered.
@@ -28,32 +30,21 @@ glm::dvec3 ray_color(const ray& r, const glm::dvec3 background, const hittable_l
         return background;
 
     ray scattered;
-    glm::dvec3 emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
-    double pdf;
+    glm::dvec3 emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
+    double pdf_val;
     glm::dvec3 albedo;
-    if (!rec.mat_ptr->scatter(r,  rec, albedo,scattered, pdf))
+    if (!rec.mat_ptr->scatter(r,  rec, albedo,scattered, pdf_val))
         return emitted;
-    /**
-    auto on_light = glm::dvec3(random_double(213,343), 554, random_double(227, 332));
-    auto to_light = on_light - rec.p;
-    auto distance_squared = (to_light.x * to_light.x) + (to_light.y * to_light.y) + (to_light.z * to_light.z);
-    to_light = glm::normalize(to_light);
+    auto p0 = make_shared<hittable_pdf>(lights, rec.p);
+    auto p1 = make_shared<cosine_pdf>(rec.normal);
+    mixture_pdf mixed_pdf(p0, p1);
 
-    if (glm::dot(to_light, rec.normal) < 0)
-        return emitted;
-
-    double light_area = (343-213)*(332-227);
-    auto light_cosine = fabs(to_light.y);
-    if (light_cosine < 0.000001)
-        return emitted;
-
-    pdf = distance_squared / (light_cosine * light_area);
-    scattered = ray(rec.p, to_light, r.time());
-    **/
+    scattered = ray(rec.p, mixed_pdf.generate(), r.time());
+    pdf_val = mixed_pdf.value(scattered.direction());
 
     return emitted
             + albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-            * ray_color(scattered, background, world, depth - 1) / pdf;
+            * ray_color(scattered, background, world, lights, depth - 1) / pdf_val;
 }
 
 hittable_list final_scene() {
@@ -131,7 +122,7 @@ hittable_list cornell_box() {
 
     objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
     objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
+    objects.add(make_shared<flip_face>(make_shared<xz_rect>(213, 343, 227, 332, 554, light)));
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
     objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
@@ -281,6 +272,7 @@ int main() {
 
     // World
     hittable_list world;
+    shared_ptr<hittable> lights;
 
     glm::dvec3 lookFrom;
     glm::dvec3 lookAt = glm::dvec3(0,0,0);
@@ -350,6 +342,7 @@ int main() {
         default:
         case 6:
             world = cornell_box();
+            lights = make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>());
             aspect_ratio = 1.0;
             image_width = 1024;
             samples_per_pixel = 10;
@@ -398,7 +391,7 @@ int main() {
                 auto v = (j + random_double()) / (image_height - 1);
                 ray r = cam.get_ray(u, v);
                 //std::thread rayWorker(ray_color, r, world, max_depth, (&pixel_color));
-                pixel_color += ray_color(r, background, world, max_depth);
+                pixel_color += ray_color(r, background, world, lights, max_depth);
             }
             write_color(std::cout, pixel_color, samples_per_pixel);
         }

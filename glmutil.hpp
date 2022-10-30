@@ -71,7 +71,7 @@ inline glm::dvec3 random_cosine_direction() {
     auto x = cos(phi)*sqrt(r2);
     auto y = sin(phi)*sqrt(r2);
 
-    return glm::dvec3(x, y, z);
+    return {x, y, z};
 }
 
 #endif //UNTITLED_GLMUTIL_HPP

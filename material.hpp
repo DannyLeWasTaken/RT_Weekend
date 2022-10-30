@@ -15,7 +15,7 @@
 
 class material {
 public:
-    virtual glm::dvec3 emitted(double u, double v, const glm::dvec3 &p) const {
+    virtual glm::dvec3 emitted(const ray& r_in, const hit_record& rec, double u, double v, const glm::dvec3 &p) const {
         return glm::dvec3{0,0,0};
     }
     virtual bool scatter(
@@ -136,8 +136,12 @@ public:
         return false;
     }
 
-    virtual glm::dvec3 emitted(double u, double v, const glm::dvec3 &p) const override {
-        return emit->value(u,v,p);
+    virtual glm::dvec3 emitted(const ray& r_in, const hit_record& rec, double u, double v, const glm::dvec3 &p) const override {
+
+        if (rec.front_face)
+            return emit->value(u,v,p);
+        else
+            return glm::dvec3(0,0,0);
     }
 
 public:
