@@ -7,6 +7,8 @@
 
 #include "hittable.hpp"
 #include "glm/vec3.hpp"
+#include "onb.hpp"
+#include "pdf.hpp"
 
 class sphere: public hittable {
 public:
@@ -15,6 +17,10 @@ public:
 
     virtual bool hit(const ray &r, double t_min, double t_max, hit_record& rec) const override;
     virtual bool bounding_box(double time0, double time1, aabb& output_box) const override;
+
+    double pdf_value(const glm::dvec3& o, const glm::dvec3 &v) const;
+    glm::dvec3 random(const glm::dvec3& o) const;
+
 public:
     glm::dvec3 center;
     double radius;
@@ -35,6 +41,27 @@ private:
         v = theta / pi;
     }
 };
+
+double sphere::pdf_value(const glm::dvec3 &o, const glm::dvec3 &v) const {
+    hit_record rec;
+    if (!this->hit(ray(o, v), 0.001, infinity, rec))
+        return 0;
+
+    auto cos_theta_max = sqrt(1 - radius*radius/glm::dot(center-o, center-o) );
+    auto solid_angle = 2*pi*(1-cos_theta_max);
+
+    return 1 / solid_angle;
+}
+
+glm::dvec3 sphere::random(const glm::dvec3 &o) const {
+    glm::dvec3 direction  = center - o;
+    auto distance_squared = glm::dot(direction, direction);
+
+    onb uvw;
+    uvw.build_from_w(direction);
+
+    return uvw.local(random_to_sphere(radius, distance_squared));
+}
 
 bool sphere::hit(const ray &r, double t_min, double t_max, hit_record &rec) const {
     glm::dvec3 oc = r.origin() - center;
