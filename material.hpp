@@ -11,6 +11,7 @@
 #include "hittable.hpp"
 #include <glm/glm.hpp>
 #include "texture.hpp"
+#include "onb.hpp"
 
 class material {
 public:
@@ -38,8 +39,12 @@ public:
     virtual bool scatter(
             const ray& r_in, const hit_record& rec, glm::dvec3& alb, ray& scattered, double& pdf
             ) const override {
+        onb uvw;
+        uvw.build_from_w(rec.normal);
+
         auto scatter_direction = rec.normal + random_unit_vector();
-        auto direction = random_in_hemisphere(rec.normal);
+        //auto direction = random_in_hemisphere(rec.normal);
+        auto direction = uvw.local(random_cosine_direction());
         // Catch degenerate scatter direction
         if (near_zero(scatter_direction))
             scatter_direction = rec.normal;
@@ -47,7 +52,7 @@ public:
         scattered = ray(rec.p, glm::normalize(direction), r_in.time());
         alb = albedo->value(rec.u, rec.v, rec.p);
         //pdf = dot(rec.normal, scattered.direction()) / pi;
-        pdf = 0.5 / pi;
+        pdf = glm::dot(uvw.w(), scattered.direction()) / pi;
         return true;
     };
     double scattering_pdf(
